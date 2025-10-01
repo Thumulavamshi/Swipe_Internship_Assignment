@@ -15,6 +15,15 @@ import type { CandidateProfile } from '../store/candidateSlice';
 
 const { Text } = Typography;
 
+// Utility function to safely handle arrays and descriptions
+// This prevents "exp.description.map is not a function" errors when the API returns
+// different data types (string vs array) for description fields
+const safeArrayMap = <T,>(data: T | T[] | undefined | null): T[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return [data];
+};
+
 interface ProfileDisplayProps {
   profile: CandidateProfile | null;
   className?: string;
@@ -82,7 +91,7 @@ const ProfileDisplay: React.FC<ProfileDisplayProps> = ({ profile, className }) =
       </Descriptions>
 
       {/* Skills */}
-      {profile.skills && profile.skills.length > 0 && (
+      {profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0 && (
         <>
           <Divider orientation="left">Skills</Divider>
           <div style={{ marginBottom: '20px' }}>
@@ -121,7 +130,7 @@ const ProfileDisplay: React.FC<ProfileDisplayProps> = ({ profile, className }) =
       )}
 
       {/* Experience */}
-      {profile.experience && profile.experience.length > 0 && (
+      {profile.experience && Array.isArray(profile.experience) && profile.experience.length > 0 && (
         <>
           <Divider orientation="left">
             <Space>
@@ -143,11 +152,11 @@ const ProfileDisplay: React.FC<ProfileDisplayProps> = ({ profile, className }) =
                     <Text strong>{exp.end}</Text>
                   </Space>
                 </div>
-                {exp.description && exp.description.length > 0 && (
+                {exp.description && (
                   <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                    {exp.description.map((desc, descIndex) => (
+                    {safeArrayMap(exp.description).filter(Boolean).map((desc, descIndex) => (
                       <li key={descIndex}>
-                        <Text style={{ fontSize: '13px' }}>{desc}</Text>
+                        <Text style={{ fontSize: '13px' }}>{String(desc)}</Text>
                       </li>
                     ))}
                   </ul>
@@ -159,7 +168,7 @@ const ProfileDisplay: React.FC<ProfileDisplayProps> = ({ profile, className }) =
       )}
 
       {/* Projects */}
-      {profile.projects && profile.projects.length > 0 && (
+      {profile.projects && Array.isArray(profile.projects) && profile.projects.length > 0 && (
         <>
           <Divider orientation="left">
             <Space>
@@ -175,11 +184,11 @@ const ProfileDisplay: React.FC<ProfileDisplayProps> = ({ profile, className }) =
                 title={<Text strong>{project.title}</Text>}
                 style={{ marginBottom: '12px' }}
               >
-                {project.description && project.description.length > 0 && (
+                {project.description && (
                   <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                    {project.description.map((desc, descIndex) => (
+                    {safeArrayMap(project.description).filter(Boolean).map((desc, descIndex) => (
                       <li key={descIndex}>
-                        <Text style={{ fontSize: '13px' }}>{desc}</Text>
+                        <Text style={{ fontSize: '13px' }}>{String(desc)}</Text>
                       </li>
                     ))}
                   </ul>

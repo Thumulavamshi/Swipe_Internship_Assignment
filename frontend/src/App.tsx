@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Layout, Tabs } from 'antd';
 import IntervieweePage from './pages/IntervieweePage';
 import InterviewerPage from './pages/InterviewerPage';
-import WelcomeBackModal from './components/WelcomeBackModal';
 import StartNewInterviewButton from './components/StartNewInterviewButton';
 import SavedInterviewsButton from './components/SavedInterviewsButton';
 import { useAppSelector, useAppDispatch } from './store/hooks';
@@ -13,38 +12,8 @@ const { Header, Content } = Layout;
 
 function App() {
   const dispatch = useAppDispatch();
-  const candidate = useAppSelector((state) => state.candidate);
   const session = useAppSelector((state) => state.session);
   const [activeTab, setActiveTab] = useState<string>(session.currentTab);
-
-  // Check for unfinished session on app load
-  useEffect(() => {
-    const hasUnfinished = session.hasUnfinishedSession && 
-                         candidate.id && 
-                         !session.welcomeBackShown &&
-                         !candidate.interviewProgress.isComplete;
-    
-    if (hasUnfinished) {
-      // Small delay to ensure the app is fully loaded
-      setTimeout(() => {
-        setShowWelcomeBack(true);
-      }, 1000);
-    }
-  }, [session.hasUnfinishedSession, candidate.id, session.welcomeBackShown, candidate.interviewProgress.isComplete]);
-
-  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
-
-  const handleResumeInterview = () => {
-    setShowWelcomeBack(false);
-    setActiveTab('interviewee');
-    dispatch(setCurrentTab('interviewee'));
-  };
-
-  const handleDiscardSession = () => {
-    setShowWelcomeBack(false);
-    setActiveTab('interviewee');
-    dispatch(setCurrentTab('interviewee'));
-  };
 
   const handleTabChange = (key: string) => {
     setActiveTab(key);
@@ -66,12 +35,6 @@ function App() {
 
   return (
     <div className="app">
-      <WelcomeBackModal
-        visible={showWelcomeBack}
-        onResume={handleResumeInterview}
-        onDiscard={handleDiscardSession}
-      />
-      
       <Layout style={{ height: '100vh', width: '100vw', margin: 0, padding: 0 }}>
         <Header 
           style={{ 

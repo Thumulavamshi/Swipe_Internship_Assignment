@@ -210,7 +210,7 @@ const SavedInterviewsModal: React.FC<SavedInterviewsModalProps> = ({ visible, on
               </div>
             )}
 
-            {selectedInterview.candidateProfile.skills && selectedInterview.candidateProfile.skills.length > 0 && (
+            {selectedInterview.candidateProfile.skills && Array.isArray(selectedInterview.candidateProfile.skills) && selectedInterview.candidateProfile.skills.length > 0 && (
               <div>
                 <Title level={4}>Skills</Title>
                 <div>

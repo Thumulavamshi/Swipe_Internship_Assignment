@@ -10,6 +10,15 @@ import { uploadResume } from '../api/services';
 
 const { Text } = Typography;
 
+// Utility function to safely handle arrays and descriptions
+// This prevents "exp.description.map is not a function" errors when the API returns
+// different data types (string vs array) for description fields
+const safeArrayMap = <T,>(data: T | T[] | undefined | null): T[] => {
+  if (!data) return [];
+  if (Array.isArray(data)) return data;
+  return [data];
+};
+
 interface ResumeUploadProps {
   onStartInterview?: () => void;
 }
@@ -316,7 +325,7 @@ const ResumeUpload = ({ onStartInterview }: ResumeUploadProps = {}) => {
             )}
 
             {/* Experience Section */}
-            {candidateState.profile.experience && candidateState.profile.experience.length > 0 && (
+            {candidateState.profile.experience && Array.isArray(candidateState.profile.experience) && candidateState.profile.experience.length > 0 && (
               <div style={{ marginBottom: '24px' }}>
                 <Typography.Title level={4} style={{ marginBottom: '16px' }}>
                   Experience ({candidateState.profile.experience.length} items)
@@ -333,11 +342,11 @@ const ResumeUpload = ({ onStartInterview }: ResumeUploadProps = {}) => {
                           </Text>
                         )}
                       </div>
-                      {exp.description && exp.description.length > 0 && (
+                      {exp.description && (
                         <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                          {exp.description.map((desc, descIndex) => (
+                          {safeArrayMap(exp.description).filter(Boolean).map((desc, descIndex) => (
                             <li key={descIndex} style={{ marginBottom: '4px' }}>
-                              <Text>{desc}</Text>
+                              <Text>{String(desc)}</Text>
                             </li>
                           ))}
                         </ul>
@@ -349,7 +358,7 @@ const ResumeUpload = ({ onStartInterview }: ResumeUploadProps = {}) => {
             )}
 
             {/* Projects Section */}
-            {candidateState.profile.projects && candidateState.profile.projects.length > 0 && (
+            {candidateState.profile.projects && Array.isArray(candidateState.profile.projects) && candidateState.profile.projects.length > 0 && (
               <div style={{ marginBottom: '24px' }}>
                 <Typography.Title level={4} style={{ marginBottom: '16px' }}>
                   Projects
@@ -359,11 +368,11 @@ const ResumeUpload = ({ onStartInterview }: ResumeUploadProps = {}) => {
                     <div style={{ marginBottom: '8px' }}>
                       <Text strong>{project.title}</Text>
                     </div>
-                    {project.description && project.description.length > 0 && (
+                    {project.description && (
                       <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
-                        {project.description.map((desc, descIndex) => (
+                        {safeArrayMap(project.description).filter(Boolean).map((desc, descIndex) => (
                           <li key={descIndex} style={{ marginBottom: '4px' }}>
-                            <Text>{desc}</Text>
+                            <Text>{String(desc)}</Text>
                           </li>
                         ))}
                       </ul>
@@ -374,7 +383,7 @@ const ResumeUpload = ({ onStartInterview }: ResumeUploadProps = {}) => {
             )}
 
             {/* Skills Section */}
-            {candidateState.profile.skills && candidateState.profile.skills.length > 0 && (
+            {candidateState.profile.skills && Array.isArray(candidateState.profile.skills) && candidateState.profile.skills.length > 0 && (
               <div style={{ marginBottom: '24px' }}>
                 <Typography.Title level={4} style={{ marginBottom: '16px' }}>
                   Skills
