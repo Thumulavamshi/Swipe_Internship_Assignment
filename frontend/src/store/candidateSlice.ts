@@ -181,6 +181,18 @@ const candidateSlice = createSlice({
       }
       state.lastUpdated = new Date().toISOString();
     },
+    saveCurrentInterview: (state) => {
+      // This action will be handled by the component to save to local storage
+      // The actual saving logic is in the component since we need to import the utility
+      state.lastUpdated = new Date().toISOString();
+    },
+    startNewInterview: (state) => {
+      // Clean up localStorage when starting new interview
+      if (state.id) {
+        localStorage.removeItem(`resume_${state.id}`);
+      }
+      return { ...initialState };
+    },
     clearCandidate: (state) => {
       // Clean up localStorage when clearing candidate
       if (state.id) {
@@ -204,6 +216,8 @@ export const {
   updateAnswer,
   nextQuestion,
   completeInterview,
+  saveCurrentInterview,
+  startNewInterview,
   clearCandidate 
 } = candidateSlice.actions;
 

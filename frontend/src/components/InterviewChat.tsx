@@ -6,6 +6,7 @@ import { addAnswer, nextQuestion, completeInterview, startInterview as startInte
 import { generateQuestions, scoreAnswers } from '../api/services';
 import type { GeneratedQuestion, GenerateQuestionsResponse, ParsedResumeData, ScoringPayload } from '../api/services';
 import VoiceRecorder from './VoiceRecorder';
+import { saveInterviewToStorage, createSavedInterviewFromState } from '../utils/interviewStorage';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
@@ -358,6 +359,21 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [candidate.interviewProgress, interviewStarted]);
+
+  // Auto-save completed interviews
+  useEffect(() => {
+    if (candidate.interviewProgress?.isComplete && candidate.finalScore !== null && candidate.id) {
+      const savedInterview = createSavedInterviewFromState(candidate);
+      if (savedInterview) {
+        try {
+          saveInterviewToStorage(savedInterview);
+          console.log(`Interview for ${candidate.profile?.name} auto-saved successfully`);
+        } catch (error) {
+          console.error('Failed to auto-save interview:', error);
+        }
+      }
+    }
+  }, [candidate.interviewProgress?.isComplete, candidate.finalScore, candidate.id, candidate]);
 
   // Check if interview is being scored
   if (isScoringAnswers) {

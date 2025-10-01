@@ -3,6 +3,8 @@ import { Layout, Tabs } from 'antd';
 import IntervieweePage from './pages/IntervieweePage';
 import InterviewerPage from './pages/InterviewerPage';
 import WelcomeBackModal from './components/WelcomeBackModal';
+import StartNewInterviewButton from './components/StartNewInterviewButton';
+import SavedInterviewsButton from './components/SavedInterviewsButton';
 import { useAppSelector, useAppDispatch } from './store/hooks';
 import { setCurrentTab } from './store/sessionSlice';
 import './App.css';
@@ -78,12 +80,17 @@ function App() {
             padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
+            justifyContent: 'space-between',
             flexShrink: 0
           }}
         >
           <h1 style={{ color: 'white', margin: 0, fontSize: '24px' }}>
             Interview Platform
           </h1>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <SavedInterviewsButton />
+            <StartNewInterviewButton />
+          </div>
         </Header>
         <Content style={{ 
           padding: '24px', 

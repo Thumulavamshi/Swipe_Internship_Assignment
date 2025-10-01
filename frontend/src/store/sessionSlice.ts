@@ -37,6 +37,9 @@ const sessionSlice = createSlice({
       state.hasUnfinishedSession = false;
       state.lastActivity = new Date().toISOString();
     },
+    startNewSession: () => {
+      return { ...initialState };
+    },
     clearSession: () => {
       return { ...initialState };
     },
@@ -48,6 +51,7 @@ export const {
   setWelcomeBackShown,
   setCurrentTab,
   completeSession,
+  startNewSession,
   clearSession 
 } = sessionSlice.actions;
 
