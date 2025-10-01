@@ -98,27 +98,53 @@ export interface QuestionScore {
   candidate_answer: string;
   time_taken: number;
   max_time_allowed: number;
-  score: number;
+  content_score: number;
+  total_score: number;
   feedback: string;
   strengths: string[];
   weaknesses: string[];
+  key_points_covered: string[];
+  key_points_missed: string[];
 }
 
 export interface ScoringResponse {
-  candidate_info: {
-    name: string;
-    technology: string;
+  candidate_name: string;
+  technology: string;
+  total_questions: number;
+  questions_attempted: number;
+  question_scores: QuestionScore[];
+  difficulty_breakdown: {
+    easy: { avg_content_score: number; count: number };
+    medium: { avg_content_score: number; count: number };
+    hard: { avg_content_score: number; count: number };
   };
-  overall_score: number;
-  detailed_scores: QuestionScore[];
-  summary: string;
+  final_score: {
+    content_score: number;
+    overall_score: number;
+  };
+  overall_feedback: string;
+  recommendation: string;
+  strengths_summary: string[];
+  areas_for_improvement: string[];
 }
 
 // Generate questions for interview
 export const generateQuestions = async (parsedResumeData: ParsedResumeData): Promise<GenerateQuestionsResponse> => {
   try {
-    const response = await apiClient.post('/generate-questions', parsedResumeData);
-    return response.data;
+    const response = await fetch('https://resume-parser-api-oxht.onrender.com/generate-questions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(parsedResumeData),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Generate questions failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Generate questions API error:', error);
     throw error;
@@ -128,11 +154,39 @@ export const generateQuestions = async (parsedResumeData: ParsedResumeData): Pro
 // Score interview answers
 export const scoreAnswers = async (payload: ScoringPayload): Promise<ScoringResponse> => {
   try {
-    const response = await apiClient.post('/score-answers', payload);
-    return response.data;
+    const response = await fetch('https://resume-parser-api-oxht.onrender.com/score-answers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Score answers failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data;
   } catch (error) {
     console.error('Score answers API error:', error);
     throw error;
+  }
+};
+
+// Health check for API connection
+export const healthCheck = async (): Promise<{ status: string; message: string }> => {
+  try {
+    await apiClient.get('/health');
+    return {
+      status: 'success',
+      message: 'API is connected'
+    };
+  } catch {
+    return {
+      status: 'error',
+      message: 'Failed to connect to API'
+    };
   }
 };
 

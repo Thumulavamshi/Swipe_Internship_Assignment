@@ -225,15 +225,15 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
           message.destroy(); // Clear loading message
           
           dispatch(completeInterview({
-            score: Math.round(scoringResult.overall_score),
-            summary: scoringResult.summary,
+            score: Math.round(scoringResult.final_score?.overall_score ?? 0),
+            summary: scoringResult.overall_feedback,
             scoringResults: scoringResult
           }));
           
-          message.success(`Interview completed! Your score: ${Math.round(scoringResult.overall_score)}/100`);
+          message.success(`Interview completed! Your score: ${Math.round(scoringResult.final_score?.overall_score ?? 0)}/100`);
           onInterviewComplete?.(
-            Math.round(scoringResult.overall_score), 
-            scoringResult.summary
+            Math.round(scoringResult.final_score?.overall_score ?? 0), 
+            scoringResult.overall_feedback
           );
         } catch (error) {
           console.error('Failed to score answers:', error);
@@ -324,13 +324,25 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
 
   // Check if interview is complete
   if (candidate.interviewProgress?.isComplete) {
+    const scoringResults = candidate.interviewProgress.scoringResults as {
+      total_questions?: number;
+      questions_attempted?: number;
+      final_score?: { content_score: number; overall_score: number };
+      overall_feedback?: string;
+      recommendation?: string;
+      strengths_summary?: string[];
+      areas_for_improvement?: string[];
+    } | undefined;
+    
     return (
       <Card title="Interview Complete">
         <div style={{ textAlign: 'center', padding: '40px' }}>
           <Title level={3}>🎉 Interview Completed!</Title>
           <Text>
-            You have successfully answered all 6 questions. Thank you for completing the interview!
+            You have successfully answered all {scoringResults?.total_questions || 6} questions. Thank you for completing the interview!
           </Text>
+          
+          {/* Final Score */}
           {candidate.finalScore !== null && (
             <div style={{ marginTop: '20px', padding: '16px', backgroundColor: '#f6ffed', borderRadius: '8px' }}>
               <Title level={4} style={{ color: '#52c41a', margin: 0 }}>
@@ -338,7 +350,56 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
               </Title>
             </div>
           )}
-          {candidate.summary && (
+          
+          {/* Recommendation */}
+          {scoringResults?.recommendation && (
+            <div style={{ marginTop: '16px', padding: '16px', backgroundColor: scoringResults.recommendation === 'conditional-hire' ? '#fff7e6' : '#f6ffed', borderRadius: '8px' }}>
+              <Text strong style={{ color: scoringResults.recommendation === 'conditional-hire' ? '#fa8c16' : '#52c41a' }}>
+                Recommendation: {scoringResults.recommendation.replace('-', ' ').toUpperCase()}
+              </Text>
+            </div>
+          )}
+
+          {/* Overall Feedback */}
+          {scoringResults?.overall_feedback && (
+            <div style={{ marginTop: '16px', textAlign: 'left', padding: '16px', backgroundColor: '#f0f2f5', borderRadius: '8px' }}>
+              <Text strong>Overall Feedback:</Text>
+              <p style={{ margin: '8px 0 0 0', lineHeight: '1.6' }}>
+                {scoringResults.overall_feedback}
+              </p>
+            </div>
+          )}
+
+          {/* Strengths Summary */}
+          {scoringResults?.strengths_summary && scoringResults.strengths_summary.length > 0 && (
+            <div style={{ marginTop: '16px', textAlign: 'left', padding: '16px', backgroundColor: '#f6ffed', borderRadius: '8px' }}>
+              <Text strong style={{ color: '#52c41a' }}>Your Strengths:</Text>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                {scoringResults.strengths_summary.map((strength: string, index: number) => (
+                  <li key={index} style={{ marginBottom: '4px', lineHeight: '1.6' }}>
+                    {strength}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Areas for Improvement */}
+          {scoringResults?.areas_for_improvement && scoringResults.areas_for_improvement.length > 0 && (
+            <div style={{ marginTop: '16px', textAlign: 'left', padding: '16px', backgroundColor: '#fff2f0', borderRadius: '8px' }}>
+              <Text strong style={{ color: '#ff4d4f' }}>Areas for Improvement:</Text>
+              <ul style={{ margin: '8px 0 0 0', paddingLeft: '20px' }}>
+                {scoringResults.areas_for_improvement.map((area: string, index: number) => (
+                  <li key={index} style={{ marginBottom: '4px', lineHeight: '1.6' }}>
+                    {area}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Fallback summary for cases where detailed scoring isn't available */}
+          {candidate.summary && !scoringResults?.overall_feedback && (
             <div style={{ marginTop: '16px', textAlign: 'left', padding: '16px', backgroundColor: '#f0f2f5', borderRadius: '8px' }}>
               <Text strong>Interview Summary:</Text>
               <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'inherit', margin: '8px 0 0 0' }}>
@@ -357,7 +418,7 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
         <Space direction="vertical" size="large">
           <div>
             <Title level={4}>Technical Interview</Title>
-            <p>You will be asked exactly 6 questions (2 Easy, 2 Medium, 2 Hard).</p>
+            <p>You will be asked exactly 6 questions.</p>
             <p>Each question has a time limit. Answer will be auto-submitted when time expires.</p>
           </div>
           <Button 

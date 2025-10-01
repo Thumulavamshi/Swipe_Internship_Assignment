@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Tabs } from 'antd';
 import ResumeUpload from '../components/ResumeUpload';
-import ConnectionStatus from '../components/ConnectionStatus';
 import InterviewChat from '../components/InterviewChat';
 import { useAppSelector } from '../store/hooks';
 
@@ -34,15 +33,12 @@ const IntervieweePage = () => {
 
   return (
     <div>
-      <ConnectionStatus />
-      <div style={{ marginTop: '16px' }}>
-        <Tabs
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          items={tabItems}
-          size="large"
-        />
-      </div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={tabItems}
+        size="large"
+      />
     </div>
   );
 };
