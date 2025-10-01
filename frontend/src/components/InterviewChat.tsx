@@ -343,22 +343,25 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timeLeft, currentQuestion, isSubmitting]);
 
-  // Check if interview should be restored
+  // Check if interview should be restored - DISABLED to prevent auto-start
+  // This effect is now disabled to prevent auto-starting interviews on navigation
+  // Users must explicitly click "Start Interview" button to begin
   useEffect(() => {
-    if (candidate.interviewProgress?.startedAt && !interviewStarted && candidate.interviewProgress.generatedQuestions) {
-      // Try to restore interview state
+    // Only restore if interview was explicitly started (not on page navigation)
+    // This prevents the infinite "Loading questions" issue
+    if (interviewStarted && candidate.interviewProgress?.startedAt && candidate.interviewProgress.generatedQuestions) {
+      // Try to restore interview state only if already started
       const currentIndex = candidate.interviewProgress.questionIndex;
       const questions = candidate.interviewProgress.generatedQuestions;
       
       if (currentIndex < questions.length && !candidate.interviewProgress.isComplete) {
         const question = questions[currentIndex];
         setCurrentQuestion(question);
-        setInterviewStarted(true);
         startTimer(getTimeLimit(question.difficulty));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [candidate.interviewProgress, interviewStarted]);
+  }, [interviewStarted, candidate.interviewProgress]);
 
   // Auto-save completed interviews
   useEffect(() => {
