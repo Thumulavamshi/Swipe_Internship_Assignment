@@ -235,13 +235,13 @@ const SavedInterviewsButton: React.FC = () => {
 
   return (
     <>
-      <Button
+      {/* <Button
         icon={<HistoryOutlined />}
         onClick={() => setShowModal(true)}
         style={{ marginLeft: '8px' }}
       >
         View History
-      </Button>
+      </Button> */}
       <SavedInterviewsModal
         visible={showModal}
         onClose={() => setShowModal(false)}
