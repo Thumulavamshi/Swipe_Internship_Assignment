@@ -27,6 +27,8 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
   const [isGeneratingQuestions, setIsGeneratingQuestions] = useState(false);
   const [isScoringAnswers, setIsScoringAnswers] = useState(false);
   const [inputMethod, setInputMethod] = useState<'text' | 'voice'>('text');
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+  const [shouldStopRecording, setShouldStopRecording] = useState(false);
   
   const timerRef = useRef<number | null>(null);
   const autoSubmitRef = useRef<boolean>(false);
@@ -68,9 +70,19 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
     timerRef.current = window.setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
+          console.log('Timer expired, triggering auto-submission');
           // Auto-submit when time runs out
           autoSubmitRef.current = true;
-          handleSubmitAnswer();
+          // Stop the timer first to prevent multiple auto-submissions
+          if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+          }
+          // Use setTimeout to avoid stale closure issues
+          setTimeout(() => {
+            console.log('Executing auto-submission');
+            handleSubmitAnswer();
+          }, 0);
           return 0;
         }
         return prev - 1;
@@ -151,8 +163,30 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
 
   // Submit answer
   const handleSubmitAnswer = async () => {
-    if (!currentQuestion || isSubmitting || !candidate.interviewProgress?.generatedQuestions) return;
+    // For auto-submission (when timer expires), bypass the isSubmitting check
+    const isAutoSubmit = autoSubmitRef.current;
+    
+    console.log('handleSubmitAnswer called', { isAutoSubmit, isSubmitting, hasCurrentQuestion: !!currentQuestion });
+    
+    if (!currentQuestion || (!isAutoSubmit && isSubmitting) || !candidate.interviewProgress?.generatedQuestions) {
+      console.log('Early return from handleSubmitAnswer', { 
+        currentQuestion: !!currentQuestion, 
+        isAutoSubmit, 
+        isSubmitting, 
+        hasGeneratedQuestions: !!candidate.interviewProgress?.generatedQuestions 
+      });
+      return;
+    }
 
+    console.log('Proceeding with answer submission', { isAutoSubmit, isVoiceRecording });
+    
+    // Stop voice recording if it's active (without interfering with timer)
+    if (isVoiceRecording && !isAutoSubmit) {
+      setShouldStopRecording(true);
+      // Reset the flag quickly to avoid state issues
+      setTimeout(() => setShouldStopRecording(false), 50);
+    }
+    
     setIsSubmitting(true);
     stopTimer();
 
@@ -161,11 +195,14 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
       // Track time taken for potential future use
       Math.min(timeTaken, getTimeLimit(currentQuestion.difficulty));
       
+      // For auto-submission, use current answerText or empty string if no answer provided
+      const finalAnswer = answerText.trim() || (isAutoSubmit ? "No answer provided (time expired)" : "");
+      
       // Save the answer to Redux
       dispatch(addAnswer({
         questionId: currentQuestion.id.toString(),
         question: currentQuestion.question,
-        answer: answerText,
+        answer: finalAnswer,
         timestamp: new Date().toISOString(),
         difficulty: currentQuestion.difficulty,
         category: currentQuestion.category
@@ -190,7 +227,7 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
         const allAnswers = [...candidate.interviewProgress.answers, {
           questionId: currentQuestion.id.toString(),
           question: currentQuestion.question,
-          answer: answerText,
+          answer: finalAnswer,
           timestamp: new Date().toISOString(),
           difficulty: currentQuestion.difficulty,
           category: currentQuestion.category
@@ -259,6 +296,9 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
         setCurrentQuestion(nextQuestion);
         setAnswerText('');
         setInputMethod('text'); // Reset to text input for next question
+        
+        // The key prop on VoiceRecorder will handle transcript clearing automatically
+        
         startTimer(getTimeLimit(nextQuestion.difficulty));
         
         const isAutoSubmit = autoSubmitRef.current;
@@ -283,12 +323,24 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
     }
   };
 
-  // Cleanup timer on unmount
+  // Cleanup timer on unmount (don't interfere with voice recording)
   useEffect(() => {
     return () => {
       stopTimer();
     };
   }, []);
+
+  // Handle auto-submission when timeLeft reaches 0
+  useEffect(() => {
+    if (timeLeft === 0 && currentQuestion && !isSubmitting && timerRef.current === null) {
+      // Safety net: if timer reached 0 but auto-submission didn't trigger
+      autoSubmitRef.current = true;
+      setTimeout(() => {
+        handleSubmitAnswer();
+      }, 100);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, currentQuestion, isSubmitting]);
 
   // Check if interview should be restored
   useEffect(() => {
@@ -539,6 +591,7 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
               ),
               children: (
                 <VoiceRecorder
+                  key={currentQuestion?.id || 'default'} // Force fresh instance for each question
                   onTranscriptionComplete={(text) => {
                     setAnswerText(text);
                     setInputMethod('text'); // Switch to text view to show the transcribed text
@@ -547,6 +600,8 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
                   placeholder="Click the microphone and speak your answer..."
                   autoSubmitOnTimeout={true}
                   timeLeft={timeLeft}
+                  onRecordingStateChange={setIsVoiceRecording}
+                  shouldStopRecording={shouldStopRecording}
                 />
               ),
             },
@@ -568,10 +623,10 @@ const InterviewChat: React.FC<InterviewChatProps> = ({ onInterviewComplete }) =>
             icon={<SendOutlined />}
             onClick={handleSubmitAnswer}
             loading={isSubmitting}
-            disabled={!answerText.trim() && timeLeft > 0}
+            disabled={!answerText.trim() && timeLeft > 5 && !isVoiceRecording}
             size="large"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Answer'}
+            {isSubmitting ? 'Submitting...' : isVoiceRecording ? 'Submit Answer' : timeLeft <= 5 && !answerText.trim() ? 'Submit Empty (Auto in ' + timeLeft + 's)' : 'Submit Answer'}
           </Button>
         </Space>
       </div>

@@ -49,6 +49,8 @@ interface VoiceRecorderProps {
   placeholder?: string;
   autoSubmitOnTimeout?: boolean;
   timeLeft?: number;
+  onRecordingStateChange?: (isRecording: boolean) => void;
+  shouldStopRecording?: boolean;
 }
 
 const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
@@ -56,7 +58,9 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   disabled = false,
   placeholder = "Click the microphone to start speaking...",
   autoSubmitOnTimeout = false,
-  timeLeft = 0
+  timeLeft = 0,
+  onRecordingStateChange,
+  shouldStopRecording = false
 }) => {
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -71,8 +75,30 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
   const analyser = useRef<AnalyserNode | null>(null);
   const animationFrame = useRef<number | undefined>(undefined);
 
+  // Check network connectivity
+  const checkNetworkConnectivity = async (): Promise<boolean> => {
+    try {
+      await fetch('https://www.google.com/favicon.ico', { 
+        method: 'HEAD',
+        mode: 'no-cors',
+        cache: 'no-cache'
+      });
+      return true;
+    } catch {
+      return navigator.onLine;
+    }
+  };
+
   // Initialize speech recognition
   useEffect(() => {
+    // Check if we're on HTTPS or localhost (required for speech recognition)
+    const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost';
+    
+    if (!isSecure && window.location.hostname !== '127.0.0.1') {
+      setError('Speech recognition requires HTTPS. Please use HTTPS or localhost for development.');
+      return;
+    }
+    
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       speechRecognition.current = new SpeechRecognition();
@@ -85,6 +111,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         speechRecognition.current.onstart = () => {
           setIsListening(true);
           setError(null);
+          onRecordingStateChange?.(true);
         };
 
         speechRecognition.current.onresult = (event: SpeechRecognitionEvent) => {
@@ -108,6 +135,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
 
         speechRecognition.current.onend = () => {
           setIsListening(false);
+          onRecordingStateChange?.(false);
           if (audioContext.current) {
             audioContext.current.close();
           }
@@ -120,7 +148,30 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         };
 
         speechRecognition.current.onerror = (event: SpeechRecognitionErrorEvent) => {
-          setError(`Speech recognition error: ${event.error}`);
+          console.error('Speech Recognition Error:', event.error, event.message);
+          
+          let errorMessage = '';
+          switch (event.error) {
+            case 'network':
+              errorMessage = 'Network error. Please check your internet connection and try again. Speech recognition requires an active internet connection.';
+              break;
+            case 'not-allowed':
+              errorMessage = 'Microphone access denied. Please allow microphone permissions and try again.';
+              break;
+            case 'no-speech':
+              errorMessage = 'No speech detected. Please try speaking more clearly.';
+              break;
+            case 'audio-capture':
+              errorMessage = 'Audio capture failed. Please check your microphone and try again.';
+              break;
+            case 'service-not-allowed':
+              errorMessage = 'Speech recognition service not allowed. This feature requires HTTPS in production.';
+              break;
+            default:
+              errorMessage = `Speech recognition error: ${event.error}. Please try again.`;
+          }
+          
+          setError(errorMessage);
           setIsListening(false);
         };
       }
@@ -133,6 +184,7 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         speechRecognition.current.stop();
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Audio level visualization
@@ -175,13 +227,41 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
     }
   }, [timeLeft, autoSubmitOnTimeout, finalTranscript, transcript, handleStopRecording]);
 
+  // Component will be remounted with fresh state for each question due to key prop
+
+  // Handle external stop recording request
+  useEffect(() => {
+    if (shouldStopRecording && isListening) {
+      handleStopRecording();
+    }
+  }, [shouldStopRecording, isListening, handleStopRecording]);
+
   const startRecording = async () => {
     if (!speechRecognition.current) {
       setError('Speech recognition not available');
       return;
     }
 
+    // Prevent multiple concurrent start attempts
+    if (isListening) {
+      return;
+    }
+
     try {
+      // Check if we're on a secure connection
+      const isSecure = window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+      if (!isSecure) {
+        setError('Speech recognition requires HTTPS. Please use HTTPS or localhost.');
+        return;
+      }
+
+      // Check network connectivity
+      const isOnline = await checkNetworkConnectivity();
+      if (!isOnline) {
+        setError('No internet connection. Speech recognition requires an active internet connection.');
+        return;
+      }
+
       // Get microphone access for audio level monitoring
       mediaStream.current = await navigator.mediaDevices.getUserMedia({ audio: true });
       audioContext.current = new AudioContext();
@@ -193,16 +273,26 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
       // Start audio level monitoring
       updateAudioLevel();
 
-      // Clear previous transcripts
+      // Clear previous transcripts and errors
       setTranscript('');
       setFinalTranscript('');
       setError(null);
       
+      // Add a small delay to prevent rapid-fire starts that can cause network errors
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       // Start speech recognition
       speechRecognition.current.start();
     } catch (err) {
-      setError('Microphone access denied');
-      console.error('Error accessing microphone:', err);
+      console.error('Error starting speech recognition:', err);
+      const error = err as DOMException;
+      if (error.name === 'NotAllowedError') {
+        setError('Microphone access denied. Please allow microphone permissions in your browser.');
+      } else if (error.name === 'NotFoundError') {
+        setError('No microphone found. Please connect a microphone and try again.');
+      } else {
+        setError('Failed to start recording. Please try again.');
+      }
     }
   };
 
@@ -349,15 +439,41 @@ const VoiceRecorder: React.FC<VoiceRecorderProps> = ({
         {/* Error Display */}
         {error && (
           <div style={{ 
-            padding: '8px', 
+            padding: '12px', 
             backgroundColor: '#fff2f0', 
             border: '1px solid #ffccc7',
             borderRadius: '4px',
             textAlign: 'center'
           }}>
-            <Text type="danger" style={{ fontSize: '12px' }}>
+            <Text type="danger" style={{ fontSize: '12px', display: 'block', marginBottom: '8px' }}>
               {error}
             </Text>
+            {error.includes('Network error') || error.includes('network') ? (
+              <Button 
+                size="small" 
+                type="primary" 
+                onClick={() => {
+                  setError(null);
+                  setTimeout(() => startRecording(), 500);
+                }}
+                disabled={isListening || isProcessing}
+              >
+                Retry
+              </Button>
+            ) : error.includes('HTTPS') ? (
+              <div>
+                <Text type="secondary" style={{ fontSize: '11px', display: 'block' }}>
+                  Try using localhost or enable HTTPS
+                </Text>
+                <Text type="secondary" style={{ fontSize: '10px', display: 'block', marginTop: '4px' }}>
+                  Speech recognition requires secure connection
+                </Text>
+              </div>
+            ) : error.includes('Microphone access denied') ? (
+              <Text type="secondary" style={{ fontSize: '11px' }}>
+                Please allow microphone access in browser settings
+              </Text>
+            ) : null}
           </div>
         )}
       </Space>
